@@ -1,0 +1,62 @@
+import numpy as np
+import random
+
+# --- Problem Setup ---
+grid_rows, grid_cols = 4, 4
+num_cells = grid_rows * grid_cols
+max_iter = 10
+
+# Simulated grayscale image (values 0–255)
+image = np.random.randint(0, 256, (8, 8))
+
+# Initialize threshold values (each cell has a threshold)
+cells = np.random.uniform(50, 200, (grid_rows, grid_cols))
+
+# Fitness: measures how well threshold separates edges (simplified)
+def fitness(threshold, region):
+    # Edge clarity = difference between high and low pixel intensities
+    high = np.mean(region[region > threshold]) if np.any(region > threshold) else 0
+    low = np.mean(region[region <= threshold]) if np.any(region <= threshold) else 0
+    return -(high - low) # minimize negative contrast difference (maximize clarity)
+
+# Neighborhood (Moore)
+def get_neighbors(i, j):
+    nbrs = []
+    for x in [-1, 0, 1]:
+        for y in [-1, 0, 1]:
+            if (x != 0 or y != 0) and 0 <= i+x < grid_rows and 0 <= j+y < grid_cols:
+                nbrs.append((i+x, j+y))
+    return nbrs
+
+# --- Parallel Cellular Algorithm ---
+for t in range(max_iter):
+    new_cells = np.copy(cells)
+    for i in range(grid_rows):
+        for j in range(grid_cols):
+            # Define small 2x2 region from image
+            r_start, c_start = i*2, j*2
+            region = image[r_start:r_start+2, c_start:c_start+2]
+            
+            # Compute current fitness
+            current_fit = fitness(cells[i,j], region)
+            
+            # Find neighbor with better fitness
+            neighbors = get_neighbors(i, j)
+            best_neighbor = (i, j)
+            best_fit = current_fit
+            for ni, nj in neighbors:
+                n_fit = fitness(cells[ni,nj], region)
+                if n_fit < best_fit:
+                    best_fit = n_fit
+                    best_neighbor = (ni, nj)
+            
+            # Update toward best neighbor
+            r = random.random()
+            ni, nj = best_neighbor
+            new_cells[i,j] = cells[i,j] + r * (cells[ni,nj] - cells[i,j])
+    
+    cells = new_cells
+
+# Find global best threshold
+best_threshold = np.mean(cells)
+print("Optimal Threshold for Edge Detection:", round(best_threshold, 2))
