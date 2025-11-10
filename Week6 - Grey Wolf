@@ -1,72 +1,55 @@
 import numpy as np
 import random
 
-# --- Problem setup ---
 num_tasks = 6
 num_servers = 3
-task_lengths = np.array([10, 20, 15, 30, 25, 35]) # in million instructions
-server_speeds = np.array([10, 15, 20]) # MIPS (million instr/sec)
+task_lengths = np.array([10, 20, 15, 30, 25, 35])
+server_speeds = np.array([10, 15, 20])
 
-# --- Fitness: makespan (lower is better) ---
 def fitness(assign):
     server_load = np.zeros(num_servers)
     for i, s in enumerate(assign):
         server_load[s] += task_lengths[i] / server_speeds[s]
     return max(server_load)
 
-# --- Grey Wolf Optimizer ---
 def grey_wolf_optimizer(num_wolves=10, max_iter=20):
-    # Initialize positions (task assignments)
     wolves = [np.random.randint(0, num_servers, num_tasks) for _ in range(num_wolves)]
     fitnesses = [fitness(w) for w in wolves]
-
-    # Identify α (best), β (2nd), δ (3rd)
     sorted_indices = np.argsort(fitnesses)
     X_alpha = wolves[sorted_indices[0]].copy()
     X_beta = wolves[sorted_indices[1]].copy()
     X_delta = wolves[sorted_indices[2]].copy()
-
-    # Main loop
     best_per_iter = []
     for t in range(max_iter):
-        a = 2 - (2 * t / max_iter) # control parameter
+        a = 2 - (2 * t / max_iter)
         for i in range(num_wolves):
             for d in range(num_tasks):
                 r1, r2 = random.random(), random.random()
                 A1 = 2 * a * r1 - a
                 C1 = 2 * r2
-
                 r1, r2 = random.random(), random.random()
                 A2 = 2 * a * r1 - a
                 C2 = 2 * r2
-
                 r1, r2 = random.random(), random.random()
                 A3 = 2 * a * r1 - a
                 C3 = 2 * r2
-
                 D_alpha = abs(C1 * X_alpha[d] - wolves[i][d])
                 D_beta = abs(C2 * X_beta[d] - wolves[i][d])
                 D_delta = abs(C3 * X_delta[d] - wolves[i][d])
-
                 X1 = X_alpha[d] - A1 * D_alpha
                 X2 = X_beta[d] - A2 * D_beta
                 X3 = X_delta[d] - A3 * D_delta
-
                 wolves[i][d] = int(round((X1 + X2 + X3) / 3)) % num_servers
-
-        # Update α, β, δ
         fitnesses = [fitness(w) for w in wolves]
         sorted_indices = np.argsort(fitnesses)
         X_alpha = wolves[sorted_indices[0]].copy()
         X_beta = wolves[sorted_indices[1]].copy()
         X_delta = wolves[sorted_indices[2]].copy()
-
         best_per_iter.append(fitness(X_alpha))
-
+        print(f"Iteration {t+1:2d} | Best Makespan: {fitness(X_alpha):.4f} | Best Assign: {X_alpha}")
     return X_alpha, fitness(X_alpha), best_per_iter
 
-# --- Run optimizer ---
 best_assign, best_makespan, best_fitness = grey_wolf_optimizer()
-print("Best task-to-server assignment:", best_assign.tolist())
+print("\nBest task-to-server assignment:", best_assign.tolist())
 print("Minimum makespan:", round(best_makespan, 4))
 print("Best fitness per iteration:", [round(x, 4) for x in best_fitness])
