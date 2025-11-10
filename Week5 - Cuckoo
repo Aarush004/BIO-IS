@@ -2,22 +2,19 @@ import numpy as np
 import random
 import math
 
-# --- Problem Setup ---
 num_tasks = 6
 num_servers = 3
 
-task_times = np.array([2, 5, 3, 7, 4, 6]) # execution times
-server_speeds = np.array([1.0, 1.2, 0.8]) # relative speeds
+task_times = np.array([2, 5, 3, 7, 4, 6])
+server_speeds = np.array([1.0, 1.2, 0.8])
 
-# --- Fitness Function: Calculate Makespan ---
 def fitness(assign):
     server_loads = np.zeros(num_servers)
     for t in range(num_tasks):
         s = assign[t]
         server_loads[s] += task_times[t] / server_speeds[s]
-    return max(server_loads) # minimize makespan
+    return max(server_loads)
 
-# --- Levy Flight step generator ---
 def levy_flight(beta=1.5):
     sigma_u = (math.gamma(1+beta) * math.sin(math.pi*beta/2) /
                (math.gamma((1+beta)/2) * beta * 2**((beta-1)/2)))**(1/beta)
@@ -26,53 +23,41 @@ def levy_flight(beta=1.5):
     step = u / abs(v)**(1/beta)
     return step[0]
 
-# --- Generate new solution ---
 def get_new_solution(old_assign):
     new_assign = old_assign.copy()
-    # Perform levy flight-style random perturbation
     for i in range(len(new_assign)):
-        if random.random() < 0.3: # mutation probability
+        if random.random() < 0.3:
             step = int(abs(levy_flight())) % num_servers
             new_assign[i] = (new_assign[i] + step) % num_servers
     return new_assign
 
-# --- Cuckoo Search Algorithm ---
 def cuckoo_search(n=10, generations=30, pa=0.25):
     nests = [np.random.randint(0, num_servers, num_tasks) for _ in range(n)]
     fitnesses = [fitness(nest) for nest in nests]
     best_nest = nests[np.argmin(fitnesses)].copy()
     best_fit = min(fitnesses)
     best_history = []
-
     for gen in range(generations):
-        # Generate new solutions by Levy flights
         for i in range(n):
             new_sol = get_new_solution(nests[i])
             new_fit = fitness(new_sol)
             if new_fit < fitnesses[i]:
                 nests[i] = new_sol
                 fitnesses[i] = new_fit
-
-        # Replace worst nests
         num_abandon = int(pa * n)
         for _ in range(num_abandon):
             worst = np.argmax(fitnesses)
             nests[worst] = np.random.randint(0, num_servers, num_tasks)
             fitnesses[worst] = fitness(nests[worst])
-
-        # Update global best
         curr_best = min(fitnesses)
         if curr_best < best_fit:
             best_fit = curr_best
             best_nest = nests[np.argmin(fitnesses)].copy()
-
         best_history.append(best_fit)
-
+        print(f"Generation {gen+1:2d} | Best Makespan: {best_fit:.4f} | Best Assign: {best_nest}")
     return best_nest, best_fit, best_history
 
-# --- Run the algorithm ---
 best_assign, best_makespan, best_per_gen = cuckoo_search(n=15, generations=20)
-
-print("Best task-to-server assignment:", best_assign.tolist())
+print("\nBest task-to-server assignment:", best_assign.tolist())
 print("Minimum makespan:", round(best_makespan, 2))
 print("Best fitness per generation:", [round(x, 2) for x in best_per_gen])
